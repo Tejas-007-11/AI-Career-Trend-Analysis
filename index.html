@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Career Recommender</title>
+    <style>
+        /* Global Styles */
+        body {
+            font-family: 'Poppins', sans-serif;
+            text-align: center;
+            background-color: #1e1e1e;
+            color: white;
+            padding: 20px;
+            margin: 0;
+        }
+
+        h1 {
+            font-size: 2rem;
+            color: #00aaff;
+            margin-bottom: 10px;
+        }
+
+        h3 {
+            color: #f8f8f8;
+            margin-bottom: 10px;
+        }
+
+        /* Container Styling */
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Button Styling */
+        button {
+            padding: 12px 20px;
+            background-color: #00aaff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-top: 10px;
+            transition: 0.3s ease-in-out;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #0088cc;
+            transform: scale(1.05);
+        }
+
+        /* Input Styling */
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            border: 1px solid #444;
+            border-radius: 5px;
+            background-color: #333;
+            color: white;
+            font-size: 1rem;
+        }
+
+        /* Trending Skills Container */
+        .trending-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        /* Trending Skill Card */
+        .skill-card {
+            background: #333;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 1rem;
+            color: #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: 0.3s ease-in-out;
+            text-align: center;
+        }
+
+        .skill-card:hover {
+            background-color: #444;
+            transform: scale(1.1);
+        }
+
+        /* Recommendations Output */
+        #output {
+            text-align: left;
+            list-style: none;
+            padding: 0;
+            margin-top: 20px;
+        }
+
+        #output li {
+            background: #333;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                width: 90%;
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            .trending-container {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+                gap: 8px;
+            }
+
+            .skill-card {
+                font-size: 0.9rem;
+                padding: 8px;
+            }
+
+            button {
+                padding: 10px;
+                font-size: 0.9rem;
+            }
+
+            input {
+                padding: 10px;
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .skill-card {
+                font-size: 0.8rem;
+                padding: 6px;
+            }
+
+            button {
+                font-size: 0.8rem;
+                padding: 8px;
+            }
+
+            input {
+                font-size: 0.8rem;
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>AI Career Recommender</h1>
+
+        <h3>Trending Skills</h3>
+        <button onclick="getTrendingSkills()">Show Trending Skills</button>
+        <div id="trending-skills" class="trending-container"></div>
+        
+        <h3>Find Your Career Match</h3>
+        <input type="text" id="skills" placeholder="Enter skills (comma separated)">
+        <button onclick="recommendCareer()">Get Recommendations</button>
+
+        <ul id="output"></ul>
+    </div>
+
+    <script>
+        function getTrendingSkills() {
+            fetch("http://127.0.0.1:5000/trending-skills")
+                .then(response => response.json())
+                .then(data => {
+                    let skillsContainer = document.getElementById("trending-skills");
+                    skillsContainer.innerHTML = "";  // Clear previous data
+
+                    data.trending_skills.forEach(skill => {
+                        let skillCard = document.createElement("div");
+                        skillCard.classList.add("skill-card");
+                        skillCard.textContent = skill;
+                        skillsContainer.appendChild(skillCard);
+                    });
+                });
+        }
+
+        function recommendCareer() {
+            const skills = document.getElementById("skills").value.split(",").map(s => s.trim());
+            fetch("http://127.0.0.1:5000/recommend-career", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ skills: skills })
+            })
+            .then(response => response.json())
+            .then(data => {
+                let output = document.getElementById("output");
+                output.innerHTML = "";
+                data.career_recommendations.forEach(job => {
+                    let li = document.createElement("li");
+                    li.textContent = `${job[0]} (Match Score: ${job[1].toFixed(2)})`;
+                    output.appendChild(li);
+                });
+            });
+        }
+    </script>
+
+</body>
+</html>
+
+
