@@ -1,31 +1,21 @@
-from flask import Flask, jsonify, request
-import sqlite3
-from flask_cors import CORS
 import os
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "career_trend.db")  # Ensure correct DB path
+import pickle
+import pandas as pd
+from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
 
-def get_db_connection():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
+# ✅ Dynamically locate the pickle file
+PICKLE_PATH = os.path.join(os.path.dirname(__file__), "career_trends.pkl")
 
-def create_table():
-    conn = get_db_connection()
-    conn.execute("""
-    CREATE TABLE IF NOT EXISTS job_data (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        LanguageHaveWorkedWith TEXT
-    )
-    """)
-    conn.commit()
-    conn.close()
-
-create_table()
+# ✅ Check if the pickle file exists before loading
+if os.path.exists(PICKLE_PATH):
+    with open(PICKLE_PATH, "rb") as f:
+        job_data = pickle.load(f)  # Ensure job_data is a DataFrame
+else:
+    job_data = None  # Handle missing file
 
 @app.route("/", methods=["GET"])
 def home():
@@ -36,28 +26,43 @@ def home():
 
 @app.route("/trending-skills", methods=["GET"])
 def trending_skills():
-    conn = get_db_connection()
-    df = conn.execute("SELECT DISTINCT LanguageHaveWorkedWith FROM job_data").fetchall()
-    conn.close()
+    if job_data is None or not isinstance(job_data, pd.DataFrame):
+        return jsonify({"error": "Pickle data not found!"}), 500
 
-    skills = list(set([skill for row in df for skill in row["LanguageHaveWorkedWith"].split(';')]))
+    if "LanguageHaveWorkedWith" not in job_data.columns:
+        return jsonify({"error": "Invalid data format!"}), 500
+
+    # ✅ Extract skills while handling None values
+    skills = list(set(
+        skill for row in job_data["LanguageHaveWorkedWith"].dropna()
+        for skill in row.split(';')
+    ))
+
     return jsonify({"trending_skills": skills})
 
 @app.route("/recommend-career", methods=["POST"])
 def recommend_career():
-    data = request.json
-    user_skills = set(data.get("skills", []))
+    if job_data is None or not isinstance(job_data, pd.DataFrame):
+        return jsonify({"error": "Pickle data not found!"}), 500
 
-    conn = get_db_connection()
-    job_data = conn.execute("SELECT DevType, LanguageHaveWorkedWith FROM job_data").fetchall()
-    conn.close()
+    data = request.json
+    user_skills = set(data.get("skills", []))  # ✅ Ensure it's a list
+
+    if not user_skills:
+        return jsonify({"error": "No skills provided!"}), 400
 
     recommendations = {}
-    for job in job_data:
-        job_skills = set(job["LanguageHaveWorkedWith"].split(';'))
-        match_score = len(user_skills & job_skills) / len(job_skills)  # Skill overlap ratio
+
+    for _, row in job_data.iterrows():
+        job_skills = row.get("LanguageHaveWorkedWith", "")
+        if not job_skills:
+            continue  # Skip if no skills listed
+
+        job_skills_set = set(job_skills.split(';'))
+        match_score = len(user_skills & job_skills_set) / len(job_skills_set)
+
         if match_score > 0:
-            recommendations[job["DevType"]] = round(match_score, 2)  # Round to 2 decimal places
+            recommendations[row["DevType"]] = round(match_score, 2)
 
     sorted_recommendations = sorted(recommendations.items(), key=lambda x: x[1], reverse=True)
 
@@ -65,6 +70,8 @@ def recommend_career():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=True)
+
+
 
 
 
