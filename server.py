@@ -14,6 +14,19 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+def create_table():
+    conn = get_db_connection()
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS job_data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        LanguageHaveWorkedWith TEXT
+    )
+    """)
+    conn.commit()
+    conn.close()
+
+create_table()
+
 @app.route("/", methods=["GET"])
 def home():
     return jsonify({
